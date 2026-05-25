@@ -302,7 +302,7 @@ class MetricsReporter:
 
         test_step_outcome = os.getenv("CI_TEST_STEP_OUTCOME", "").strip().lower()
         outcome_unknown = test_step_outcome == ""
-        run_failed_default = 0 if test_step_outcome == "success" else 1
+        inferred_run_failed = 0 if test_step_outcome == "success" else 1
 
         for name, default in DEFAULT_METRICS.items():
             env_key = name.upper()
@@ -310,7 +310,7 @@ class MetricsReporter:
             if raw_value is None:
                 raw_value = provided.get(name)
             if raw_value is None and name == "run_failed":
-                raw_value = os.getenv("CI_RUN_FAILED", run_failed_default)
+                raw_value = os.getenv("CI_RUN_FAILED", str(inferred_run_failed))
             if raw_value is None:
                 partial = True
                 raw_value = default
