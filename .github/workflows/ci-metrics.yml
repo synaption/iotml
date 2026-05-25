@@ -1,0 +1,134 @@
+name: CI with Metrics
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'copilot/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    env:
+      MLFLOW_EXPERIMENT_NAME: ci-metrics
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install metrics reporter dependencies
+        continue-on-error: true
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "psycopg[binary]>=3.1,<4" "mlflow>=2.16,<3" "pytest>=8,<9"
+
+      - name: Capture workflow start time
+        id: started
+        run: |
+          echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+          echo "iso=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Record CI run start
+        env:
+          POSTGRES_DSN: ${{ secrets.POSTGRES_DSN }}
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+          MLFLOW_TRACKING_TOKEN: ${{ secrets.MLFLOW_TRACKING_TOKEN }}
+          CI_RUN_STARTED_AT: ${{ steps.started.outputs.iso }}
+          CI_METRICS_AUTO_INIT_SCHEMA: '1'
+        run: python scripts/ci_metrics_reporter.py start
+
+      - name: Run test/inference scaffold
+        id: test_inference
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          if [ -f pyproject.toml ] || [ -f pytest.ini ] || [ -d tests ]; then
+            if python -m pytest --version >/dev/null 2>&1; then
+              python -m pytest -q
+            else
+              echo "pytest is not available in this runner environment."
+              exit 1
+            fi
+          else
+            echo "No test suite is configured yet; executing scaffold step only."
+          fi
+
+      - name: Build CI metrics payload
+        if: always()
+        run: |
+          mkdir -p .artifacts
+          python - <<'PY'
+          import json
+          import os
+
+          defaults = {
+              "detections_total": 0,
+              "escalations_total": 0,
+              "escalation_rate": -1,
+              "edge_latency_p50_ms": -1,
+              "edge_latency_p95_ms": -1,
+              "cloud_latency_p95_ms": -1,
+              "edge_cloud_agreement_rate": -1,
+          }
+
+          metrics = {}
+          for name, default in defaults.items():
+              raw = os.getenv(name.upper(), str(default))
+              try:
+                  metrics[name] = float(raw)
+              except ValueError:
+                  metrics[name] = default
+
+          with open('.artifacts/ci_metrics.json', 'w', encoding='utf-8') as fp:
+              json.dump(metrics, fp, sort_keys=True)
+          PY
+
+      - name: Publish metrics (PostgreSQL + MLflow)
+        if: always()
+        env:
+          POSTGRES_DSN: ${{ secrets.POSTGRES_DSN }}
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+          MLFLOW_TRACKING_TOKEN: ${{ secrets.MLFLOW_TRACKING_TOKEN }}
+          CI_METRICS_PATH: .artifacts/ci_metrics.json
+          CI_TEST_STEP_OUTCOME: ${{ steps.test_inference.outcome }}
+          CI_RUN_STARTED_AT: ${{ steps.started.outputs.iso }}
+          CI_METRICS_AUTO_INIT_SCHEMA: '1'
+        run: python scripts/ci_metrics_reporter.py publish
+
+      - name: Finalize run status
+        if: always()
+        env:
+          POSTGRES_DSN: ${{ secrets.POSTGRES_DSN }}
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+          MLFLOW_TRACKING_TOKEN: ${{ secrets.MLFLOW_TRACKING_TOKEN }}
+          CI_METRICS_PATH: .artifacts/ci_metrics.json
+          CI_TEST_STEP_OUTCOME: ${{ steps.test_inference.outcome }}
+          CI_FINAL_STATUS: ${{ steps.test_inference.outcome == 'success' && 'success' || 'failed' }}
+          CI_RUN_STARTED_AT: ${{ steps.started.outputs.iso }}
+          CI_METRICS_AUTO_INIT_SCHEMA: '1'
+        run: python scripts/ci_metrics_reporter.py finalize
+
+      - name: Upload metrics artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-metrics
+          path: .artifacts/ci_metrics.json
+          if-no-files-found: warn
+
+      - name: Preserve CI pass/fail outcome
+        if: always()
+        run: |
+          if [ "${{ steps.test_inference.outcome }}" != "success" ]; then
+            echo "Test/inference step failed. Metrics were still published."
+            exit 1
+          fi
