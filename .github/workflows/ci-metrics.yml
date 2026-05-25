@@ -29,7 +29,7 @@ jobs:
         continue-on-error: true
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "psycopg[binary]>=3.1,<4" "mlflow>=2.16,<3"
+          python -m pip install "psycopg[binary]>=3.1,<4" "mlflow>=2.16,<3" "pytest>=8,<9"
 
       - name: Capture workflow start time
         id: started

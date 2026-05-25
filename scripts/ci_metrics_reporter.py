@@ -108,6 +108,13 @@ def safe_float(value: Any, default: float) -> float:
         return default
 
 
+def safe_int(value: Any, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def env_bool(name: str, default: bool = False) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -120,8 +127,8 @@ class MetricsReporter:
         self.repository = os.getenv("GITHUB_REPOSITORY", "unknown/unknown")
         self.workflow_name = os.getenv("GITHUB_WORKFLOW", "unknown-workflow")
         self.job_name = os.getenv("GITHUB_JOB", "unknown-job")
-        self.github_run_id = int(os.getenv("GITHUB_RUN_ID", "0") or 0)
-        self.github_run_attempt = int(os.getenv("GITHUB_RUN_ATTEMPT", "1") or 1)
+        self.github_run_id = safe_int(os.getenv("GITHUB_RUN_ID"), 0)
+        self.github_run_attempt = safe_int(os.getenv("GITHUB_RUN_ATTEMPT"), 1)
         self.github_sha = os.getenv("GITHUB_SHA", "")
         self.github_ref = os.getenv("GITHUB_REF", "")
         self.github_actor = os.getenv("GITHUB_ACTOR", "")
