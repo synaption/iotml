@@ -15,7 +15,7 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     env:
-      MLFLOW_EXPERIMENT_NAME: iotml-ci
+      MLFLOW_EXPERIMENT_NAME: ci-metrics
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,7 +52,12 @@ jobs:
         run: |
           set -euo pipefail
           if [ -f pyproject.toml ] || [ -f pytest.ini ] || [ -d tests ]; then
-            python -m pytest -q
+            if python -m pytest --version >/dev/null 2>&1; then
+              python -m pytest -q
+            else
+              echo "pytest is not available in this runner environment."
+              exit 1
+            fi
           else
             echo "No test suite is configured yet; executing scaffold step only."
           fi

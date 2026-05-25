@@ -129,7 +129,7 @@ class MetricsReporter:
 
         self.started_at = parse_iso(os.getenv("CI_RUN_STARTED_AT")) or utcnow()
         self.metrics_auto_init_schema = env_bool("CI_METRICS_AUTO_INIT_SCHEMA", default=True)
-        self.experiment_name = os.getenv("MLFLOW_EXPERIMENT_NAME", "iotml-ci")
+        self.experiment_name = os.getenv("MLFLOW_EXPERIMENT_NAME", "ci-metrics")
 
         self.postgres_dsn = os.getenv("POSTGRES_DSN", "")
         self.mlflow_tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "")
@@ -294,7 +294,8 @@ class MetricsReporter:
         partial = False
 
         test_step_outcome = os.getenv("CI_TEST_STEP_OUTCOME", "").strip().lower()
-        run_failed_default = 0 if test_step_outcome in {"", "success"} else 1
+        outcome_unknown = test_step_outcome == ""
+        run_failed_default = 0 if test_step_outcome == "success" else 1
 
         for name, default in DEFAULT_METRICS.items():
             env_key = name.upper()
@@ -310,6 +311,9 @@ class MetricsReporter:
 
         if metrics["run_failed"] not in {0.0, 1.0}:
             metrics["run_failed"] = 1.0 if metrics["run_failed"] > 0 else 0.0
+            partial = True
+
+        if outcome_unknown:
             partial = True
 
         started = self.started_at

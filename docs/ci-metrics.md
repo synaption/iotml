@@ -22,7 +22,7 @@ Optional tuning variables:
 
 | Name | Default | Purpose |
 |---|---|---|
-| `MLFLOW_EXPERIMENT_NAME` | `iotml-ci` | MLflow experiment name |
+| `MLFLOW_EXPERIMENT_NAME` | `ci-metrics` | MLflow experiment name |
 | `CI_METRICS_AUTO_INIT_SCHEMA` | `1` | Auto-create CI tracking tables if missing |
 
 ## Failure-tolerant behavior
@@ -104,7 +104,7 @@ ORDER BY 1;
 
 ## MLflow inspection
 
-Use your tracking UI for experiment `iotml-ci` (or `MLFLOW_EXPERIMENT_NAME`).
+Use your tracking UI for experiment `ci-metrics` (or `MLFLOW_EXPERIMENT_NAME`).
 
 Each workflow attempt maps to one MLflow run tagged with:
 
