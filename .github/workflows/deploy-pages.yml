@@ -111,24 +111,32 @@ jobs:
           if-no-files-found: error
 
       # `actions/configure-pages` can only auto-enable Pages when it is given
-      # a PAT or GitHub App token, so this workflow probes first and skips the
+      # a PAT or GitHub App token, so this workflow checks first and skips the
       # deploy cleanly when the repository has not enabled Pages yet.
       - name: Check GitHub Pages availability
         id: pages
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh api "repos/${{ github.repository }}/pages" >/dev/null 2>&1; then
+          pages_error_file=$(mktemp)
+          if gh api "repos/${{ github.repository }}/pages" >/dev/null 2>"$pages_error_file"; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Pages deployment skipped::GitHub Pages is not enabled for this repository. Enable it in repository settings to publish the dashboard."
-            {
-              echo "## GitHub Pages deployment skipped"
-              echo
-              echo "GitHub Pages is not enabled for this repository."
-              echo "Enable Pages in repository settings to publish the dashboard artifact automatically."
-            } >> "$GITHUB_STEP_SUMMARY"
+            api_error=$(tr '\n' ' ' < "$pages_error_file" | sed 's/[[:space:]]\+/ /g')
+            if printf '%s' "$api_error" | grep -q "404"; then
+              echo "enabled=false" >> "$GITHUB_OUTPUT"
+              echo "::notice title=Pages deployment skipped::GitHub Pages is not enabled for this repository. Enable it in repository settings to publish the dashboard."
+              echo "::warning title=Pages API response::$api_error"
+              {
+                echo "## GitHub Pages deployment skipped"
+                echo
+                echo "GitHub Pages is not enabled for this repository."
+                echo "Enable Pages in repository settings to publish the dashboard artifact automatically."
+              } >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::error title=Pages API check failed::$api_error"
+              exit 1
+            fi
           fi
 
       - name: Configure GitHub Pages
