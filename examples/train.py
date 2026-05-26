@@ -1,7 +1,7 @@
 """
 Basic ML training example for iotml.
 
-Trains a MobileNet-style classifier on a synthetic image-like dataset
+Trains a logistic-regression classifier on a synthetic tabular dataset
 using scikit-learn so it runs quickly in CI with no GPU required.
 Outputs:
   - model.joblib  — saved model
@@ -10,7 +10,6 @@ Outputs:
 
 import json
 import os
-import pickle
 import sys
 
 import joblib
@@ -72,7 +71,7 @@ def build_model() -> Pipeline:
     )
 
 
-def evaluate(model: Pipeline, X_test: np.ndarray, y_test: np.ndarray) -> dict:
+def evaluate(model: Pipeline, X_test: np.ndarray, y_test: np.ndarray, n_train: int) -> dict:
     """Return a dict of evaluation metrics."""
     avg = "binary" if len(np.unique(y_test)) == 2 else "macro"
     y_pred = model.predict(X_test)
@@ -81,7 +80,7 @@ def evaluate(model: Pipeline, X_test: np.ndarray, y_test: np.ndarray) -> dict:
         "precision": round(float(precision_score(y_test, y_pred, average=avg, zero_division=0)), 4),
         "recall": round(float(recall_score(y_test, y_pred, average=avg, zero_division=0)), 4),
         "f1": round(float(f1_score(y_test, y_pred, average=avg, zero_division=0)), 4),
-        "n_train": int(len(y_test) / TEST_SIZE * (1 - TEST_SIZE)),
+        "n_train": n_train,
         "n_test": int(len(y_test)),
     }
 
@@ -99,7 +98,7 @@ def main() -> None:
     print("Training model…")
     model.fit(X_train, y_train)
 
-    metrics = evaluate(model, X_test, y_test)
+    metrics = evaluate(model, X_test, y_test, n_train=len(X_train))
     print("\nEvaluation metrics:")
     for name, value in metrics.items():
         print(f"  {name}: {value}")
