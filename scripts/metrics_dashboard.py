@@ -192,10 +192,11 @@ def build_ci_section(ci: dict) -> str:
     chart_values = [v for v in latency_raw if v >= 0]
 
     # Summary card values
-    def _fmt(val: float, unit: str = "", scale: float = 1.0) -> str:
+    def _fmt(val: float, unit: str = "", pct: bool = False) -> str:
         if val < 0:
             return "N/A"
-        return f"{val * scale:.2f}{unit}"
+        display = val * 100 if pct else val
+        return f"{display:.2f}{unit}"
 
     status_badge = (
         '<span class="badge badge-fail">FAILED</span>'
@@ -269,8 +270,8 @@ def build_ci_section(ci: dict) -> str:
         <div class="card"><span class="label">Pipeline duration</span><span class="value">{_fmt(duration, 's')}</span></div>
         <div class="card"><span class="label">Detections</span><span class="value">{detections:,}</span></div>
         <div class="card"><span class="label">Escalations</span><span class="value">{escalations:,}</span></div>
-        <div class="card"><span class="label">Escalation rate</span><span class="value">{_fmt(escalation_rate * 100 if escalation_rate >= 0 else -1, '%')}</span></div>
-        <div class="card"><span class="label">Edge–cloud agreement</span><span class="value">{_fmt(agreement_rate * 100 if agreement_rate >= 0 else -1, '%')}</span></div>
+        <div class="card"><span class="label">Escalation rate</span><span class="value">{_fmt(escalation_rate, '%', pct=True)}</span></div>
+        <div class="card"><span class="label">Edge–cloud agreement</span><span class="value">{_fmt(agreement_rate, '%', pct=True)}</span></div>
       </div>
       {latency_chart_html}
     </section>
