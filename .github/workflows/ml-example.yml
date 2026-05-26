@@ -1,0 +1,74 @@
+name: ML Example — Train and Evaluate
+
+# Run on every push to main/copilot branches, on PRs, or manually via the
+# "Run workflow" button in the Actions tab.
+on:
+  push:
+    branches:
+      - main
+      - 'copilot/**'
+    paths:
+      - 'examples/**'
+      - '.github/workflows/ml-example.yml'
+  pull_request:
+    paths:
+      - 'examples/**'
+      - '.github/workflows/ml-example.yml'
+  workflow_dispatch:
+    inputs:
+      n_samples:
+        description: 'Number of synthetic training samples'
+        required: false
+        default: '2000'
+      n_features:
+        description: 'Number of input features'
+        required: false
+        default: '20'
+      n_classes:
+        description: 'Number of target classes'
+        required: false
+        default: '2'
+
+permissions:
+  contents: read
+
+jobs:
+  train:
+    name: Train & Evaluate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install scikit-learn numpy joblib
+
+      - name: Train model
+        env:
+          N_SAMPLES: ${{ github.event.inputs.n_samples || '2000' }}
+          N_FEATURES: ${{ github.event.inputs.n_features || '20' }}
+          N_CLASSES: ${{ github.event.inputs.n_classes || '2' }}
+          OUTPUT_DIR: artifacts
+          MIN_ACCURACY: '0.70'
+        run: python examples/train.py
+
+      - name: Show metrics
+        run: cat artifacts/metrics.json
+
+      - name: Upload model artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-model
+          path: |
+            artifacts/model.joblib
+            artifacts/metrics.json
+          if-no-files-found: error
