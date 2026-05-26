@@ -95,6 +95,8 @@ kubectl apply -f k8s/
 | [Kubernetes deployment](docs/kubernetes.md) | Deploying inference workloads with Kubernetes |
 | [Digital Ocean setup](docs/digital-ocean.md) | Provisioning DOKS clusters and node pools |
 | [Edge deployment](docs/edge-deployment.md) | End-to-end edge deployment workflow |
+| [CI metrics tracking](docs/ci-metrics.md) | GitHub Actions scaffold with PostgreSQL + MLflow CI metric persistence |
+| [Edge-cloud planning TODO / decisions](docs/edge-cloud-vision-planning.md) | Consolidated architecture decisions, defaults, and prioritized implementation backlog |
 
 ---
 
