@@ -118,12 +118,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          pages_error_file=$(mktemp)
-          if gh api "repos/${{ github.repository }}/pages" >/dev/null 2>"$pages_error_file"; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            api_error=$(tr '\n' ' ' < "$pages_error_file" | sed 's/[[:space:]]\+/ /g')
-            if printf '%s' "$api_error" | grep -q "404"; then
+          pages_response_file=$(mktemp)
+          trap 'rm -f "$pages_response_file"' EXIT
+
+          http_status=$(curl -sS \
+            -o "$pages_response_file" \
+            -w "%{http_code}" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/pages")
+
+          case "$http_status" in
+            200)
+              echo "enabled=true" >> "$GITHUB_OUTPUT"
+              ;;
+            404)
               echo "enabled=false" >> "$GITHUB_OUTPUT"
               echo "::notice title=Pages deployment skipped::GitHub Pages is not enabled for this repository. Enable it in repository settings to publish the dashboard."
               {
@@ -132,11 +142,13 @@ jobs:
                 echo "GitHub Pages is not enabled for this repository."
                 echo "Enable Pages in repository settings to publish the dashboard artifact automatically."
               } >> "$GITHUB_STEP_SUMMARY"
-            else
-              echo "::error title=Pages API check failed::$api_error"
+              ;;
+            *)
+              api_error=$(tr '\n' ' ' < "$pages_response_file" | sed 's/[[:space:]]\+/ /g')
+              echo "::error title=Pages API check failed::Unexpected HTTP $http_status from the Pages API. $api_error"
               exit 1
-            fi
-          fi
+              ;;
+          esac
 
       - name: Configure GitHub Pages
         if: steps.pages.outputs.enabled == 'true'
