@@ -1,0 +1,116 @@
+name: Deploy Metrics Dashboard to GitHub Pages
+
+# Runs automatically whenever the CI or ML workflow finishes on main,
+# and can also be triggered manually via the "Run workflow" button.
+on:
+  workflow_run:
+    workflows:
+      - "CI with Metrics"
+      - "ML Example — Train and Evaluate"
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+# Only one Pages deployment at a time; later runs cancel in-progress ones.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    name: Build & Deploy Dashboard
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # ------------------------------------------------------------------
+      # Download the most recent successful artifacts from each workflow.
+      # Both downloads are best-effort (continue-on-error) so the deploy
+      # still works when only one set of metrics is available.
+      # ------------------------------------------------------------------
+
+      - name: Download latest CI metrics artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        continue-on-error: true
+        run: |
+          RUN_ID=$(gh run list \
+            --repo "${{ github.repository }}" \
+            --workflow ci-metrics.yml \
+            --branch main \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId' 2>/dev/null || echo "")
+          if [ -n "$RUN_ID" ] && [ "$RUN_ID" != "null" ]; then
+            echo "Downloading CI metrics from run $RUN_ID"
+            gh run download "$RUN_ID" \
+              --repo "${{ github.repository }}" \
+              --name ci-metrics \
+              --dir .artifacts/ 2>/dev/null || true
+          else
+            echo "No successful CI metrics run found; skipping."
+          fi
+
+      - name: Download latest ML metrics artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        continue-on-error: true
+        run: |
+          RUN_ID=$(gh run list \
+            --repo "${{ github.repository }}" \
+            --workflow ml-example.yml \
+            --branch main \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId' 2>/dev/null || echo "")
+          if [ -n "$RUN_ID" ] && [ "$RUN_ID" != "null" ]; then
+            echo "Downloading ML metrics from run $RUN_ID"
+            gh run download "$RUN_ID" \
+              --repo "${{ github.repository }}" \
+              --name trained-model \
+              --dir artifacts/ 2>/dev/null || true
+          else
+            echo "No successful ML example run found; skipping."
+          fi
+
+      - name: List downloaded files
+        run: |
+          echo "=== .artifacts/ ===" && ls -la .artifacts/ 2>/dev/null || echo "(empty)"
+          echo "=== artifacts/ ===" && ls -la artifacts/ 2>/dev/null || echo "(empty)"
+
+      - name: Generate combined metrics dashboard
+        run: |
+          mkdir -p _site
+          python scripts/metrics_dashboard.py \
+            --ml-metrics artifacts/metrics.json \
+            --ci-metrics .artifacts/ci_metrics.json \
+            --output _site/index.html
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
