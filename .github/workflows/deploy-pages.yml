@@ -110,6 +110,9 @@ jobs:
           path: _site/index.html
           if-no-files-found: error
 
+      # `actions/configure-pages` can only auto-enable Pages when it is given
+      # a PAT or GitHub App token, so this workflow probes first and skips the
+      # deploy cleanly when the repository has not enabled Pages yet.
       - name: Check GitHub Pages availability
         id: pages
         env:
