@@ -144,8 +144,16 @@ jobs:
               } >> "$GITHUB_STEP_SUMMARY"
               ;;
             *)
-              api_error=$(python -c 'import pathlib, sys; print(" ".join(pathlib.Path(sys.argv[1]).read_text().split()))' "$pages_response_file")
-              echo "::error title=Pages API check failed::Unexpected HTTP $http_status from the Pages API. $api_error"
+              {
+                echo "## GitHub Pages API error"
+                echo
+                echo "Unexpected HTTP status: $http_status"
+                echo
+                echo '```'
+                cat "$pages_response_file"
+                echo '```'
+              } >> "$GITHUB_STEP_SUMMARY"
+              echo "::error title=Pages API check failed::Unexpected HTTP $http_status from the Pages API."
               exit 1
               ;;
           esac
