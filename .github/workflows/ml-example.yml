@@ -64,6 +64,9 @@ jobs:
       - name: Show metrics
         run: cat artifacts/metrics.json
 
+      - name: Generate metrics dashboard
+        run: python scripts/metrics_dashboard.py --ml-metrics artifacts/metrics.json --output artifacts/dashboard.html
+
       - name: Upload model artifact
         uses: actions/upload-artifact@v4
         with:
@@ -71,4 +74,5 @@ jobs:
           path: |
             artifacts/model.joblib
             artifacts/metrics.json
+            artifacts/dashboard.html
           if-no-files-found: error
