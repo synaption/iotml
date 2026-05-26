@@ -126,7 +126,6 @@ jobs:
             if printf '%s' "$api_error" | grep -q "404"; then
               echo "enabled=false" >> "$GITHUB_OUTPUT"
               echo "::notice title=Pages deployment skipped::GitHub Pages is not enabled for this repository. Enable it in repository settings to publish the dashboard."
-              echo "::warning title=Pages API response::$api_error"
               {
                 echo "## GitHub Pages deployment skipped"
                 echo
