@@ -125,6 +125,18 @@ jobs:
           path: .artifacts/ci_metrics.json
           if-no-files-found: warn
 
+      - name: Generate metrics dashboard
+        if: always()
+        run: python scripts/metrics_dashboard.py --ci-metrics .artifacts/ci_metrics.json --output .artifacts/dashboard.html
+
+      - name: Upload dashboard artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-dashboard
+          path: .artifacts/dashboard.html
+          if-no-files-found: warn
+
       - name: Preserve CI pass/fail outcome
         if: always()
         run: |
