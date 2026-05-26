@@ -103,16 +103,42 @@ jobs:
             --ci-metrics .artifacts/ci_metrics.json \
             --output _site/index.html
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+      - name: Upload dashboard artifact
+        uses: actions/upload-artifact@v4
         with:
-          enablement: true
+          name: metrics-dashboard
+          path: _site/index.html
+          if-no-files-found: error
+
+      - name: Check GitHub Pages availability
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${{ github.repository }}/pages" >/dev/null 2>&1; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Pages deployment skipped::GitHub Pages is not enabled for this repository. Enable it in repository settings to publish the dashboard."
+            {
+              echo "## GitHub Pages deployment skipped"
+              echo
+              echo "GitHub Pages is not enabled for this repository."
+              echo "Enable Pages in repository settings to publish the dashboard artifact automatically."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Configure GitHub Pages
+        if: steps.pages.outputs.enabled == 'true'
+        uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
+        if: steps.pages.outputs.enabled == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
       - name: Deploy to GitHub Pages
+        if: steps.pages.outputs.enabled == 'true'
         id: deployment
         uses: actions/deploy-pages@v4
